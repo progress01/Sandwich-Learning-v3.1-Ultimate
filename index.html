@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandwich Learning v3.1 Ultimate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-body: #f3f4f6;
+            --bg-panel: #ffffff;
+            --border: #e5e7eb;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            
+            /* Cloze Colors */
+            --cloze-bg-hint: #fef3c7;
+            --cloze-text-hint: #92400e;
+            --cloze-bg-hidden: #94a3b8;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: 'Inter', 'Noto Sans TC', sans-serif; background: var(--bg-body); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- 1. Toolbar --- */
+        .toolbar {
+            height: 60px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; justify-content: space-between; flex-shrink: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .brand { font-weight: 800; font-size: 1.2rem; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        
+        .stage-tabs { display: flex; background: #f3f4f6; padding: 4px; border-radius: 8px; gap: 4px; }
+        .stage-btn {
+            padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; border: none; background: transparent; color: var(--text-light); font-weight: 600; transition: 0.2s;
+        }
+        .stage-btn:hover { background: #e5e7eb; color: var(--text-main); }
+        .stage-btn.active { background: white; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .stage-btn.active-3 { color: #dc2626; } /* Phase 3 Red Alert */
+
+        .tools-right { display: flex; gap: 10px; }
+        .btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #374151; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn:hover { background: #f9fafb; border-color: #9ca3af; }
+        .btn-primary { background: var(--primary); color: white; border: none; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-export { border-color: #10b981; color: #10b981; }
+        .btn-export.active { background: #10b981; color: white; }
+
+        /* --- 2. Main Layout --- */
+        .workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+        
+        /* Sidebar */
+        .sidebar { width: 240px; background: #f9fafb; border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: width 0.3s ease; flex-shrink: 0; }
+        .sidebar.closed { width: 0; border: none; overflow: hidden; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: bold; font-size: 0.9rem; color: var(--text-light); display: flex; justify-content: space-between; align-items: center; }
+        .doc-list { overflow-y: auto; flex: 1; padding: 10px; }
+        .doc-item { padding: 10px; background: white; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; font-size: 0.9rem; transition: 0.2s; }
+        .doc-item:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .doc-item.active { border-left: 4px solid var(--primary); border-color: var(--primary); background: #eef2ff; }
+
+        /* Editor Area */
+        .main-editor { flex: 1; display: flex; flex-direction: column; background: white; position: relative; }
+        #titleInput { font-size: 1.2rem; border: none; border-bottom: 1px solid #f1f5f9; padding: 15px 40px; width: 100%; outline: none; font-weight: 800; color: var(--text-main); }
+        .editor-wrapper { flex: 1; overflow-y: auto; padding: 30px 60px; position: relative; scroll-behavior: smooth; }
+        #editor { font-size: 1.15rem; line-height: 2; outline: none; min-height: 80%; white-space: pre-wrap; color: #374151; padding-bottom: 100px; }
+        #editor:empty::before { content: '請在此貼上英文文章，開始製作您的三明治學習單...'; color: #9ca3af; }
+
+        /* Right Aux Panel */
+        .aux-panel { width: 320px; border-left: 1px solid var(--border); background: white; display: flex; flex-direction: column; transition: transform 0.3s; z-index: 20; }
+        .aux-item { flex: 1; display: flex; flex-direction: column; padding: 15px; border-bottom: 1px solid var(--border); min-height: 200px; }
+        .aux-title { font-weight: bold; margin-bottom: 10px; color: var(--text-light); font-size: 0.85rem; display: flex; justify-content: space-between; }
+        
+        /* Image Box */
+        #imgBox { flex: 1; border: 2px dashed #e5e7eb; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; position: relative; background: #f9fafb; transition: 0.2s; }
+        #imgBox:hover { border-color: var(--primary); background: #f0fdf4; }
+        #imgPlaceholder { color: #9ca3af; font-size: 0.85rem; text-align: center; pointer-events: none; }
+        
+        /* Note Box */
+        textarea.note-area { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; resize: none; font-size: 0.95rem; outline: none; font-family: inherit; line-height: 1.6; background: #fffbeb; }
+        textarea.note-area:focus { border-color: #fcd34d; box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2); }
+
+        /* --- 3. Cloze (Sandwich) Styles --- */
+        .cloze-word {
+            border-radius: 4px; padding: 2px 4px; cursor: pointer; transition: all 0.2s;
+            border-bottom: 2px solid #cbd5e1; display: inline-block; min-width: 2em; text-align: center; vertical-align: bottom; margin: 0 2px;
+        }
+
+        /* Phase 1: Edit */
+        body.mode-1 .cloze-word { background: #f3f4f6; color: #000; }
+        body.mode-1 .cloze-word:hover { background: #e2e8f0; }
+        body.mode-1 .cloze-word[data-hint]::after { content: '💡'; font-size: 0.6rem; vertical-align: super; opacity: 0.7; }
+
+        /* Phase 2: Hint */
+        body.mode-2 .cloze-word {
+            background: var(--cloze-bg-hint); color: var(--cloze-text-hint); font-size: 0.9rem; font-weight: bold; border-bottom: none; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative;
+        }
+        body.mode-2 .cloze-word:not([data-hint]) { background: var(--border); color: transparent; }
+        body.mode-2 .cloze-word[data-hint]::before { 
+            content: attr(data-hint); position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center; color: var(--cloze-text-hint); pointer-events: none; font-size: 0.85em;
+        }
+        body.mode-2 .cloze-word[data-hint] { color: transparent; }
+
+        /* Phase 3: Test (Full Mask) */
+        body.mode-3 .cloze-word { background: var(--cloze-bg-hidden); color: transparent; border-radius: 4px; user-select: none; border-bottom: none; }
+        body.mode-3 .aux-panel { display: none; } /* Hide Notes/Images in Test Mode */
+        body.mode-3 .main-editor { max-width: 800px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); } /* Focus Mode */
+
+        /* Revealed State */
+        body.mode-2 .cloze-word.revealed,
+        body.mode-3 .cloze-word.revealed {
+            background: #dbeafe; color: #1e40af; font-weight: bold; font-size: inherit; animation: popIn 0.2s;
+        }
+        body.mode-2 .cloze-word.revealed::before { content: none; }
+        @keyframes popIn { 0% { transform: scale(0.9); } 100% { transform: scale(1); } }
+
+        /* --- 4. Export Mode --- */
+        body.export-mode #editor div, body.export-mode #editor p {
+            position: relative; padding-left: 35px; border-left: 3px solid transparent; cursor: pointer; transition: 0.2s; border-radius: 4px;
+        }
+        body.export-mode #editor div:hover, body.export-mode #editor p:hover { background: #f0fdf4; }
+        body.export-mode #editor div::before, body.export-mode #editor p::before {
+            content: '⬜'; position: absolute; left: 8px; top: 0; opacity: 0.4; font-size: 1rem;
+        }
+        body.export-mode #editor .export-selected { background: #dcfce7 !important; border-left-color: #10b981 !important; }
+        body.export-mode #editor .export-selected::before { content: '✅'; opacity: 1; }
+
+        /* --- 5. Enhanced Dictionary Tooltip --- */
+        #dict-tooltip {
+            position: fixed; z-index: 2000; display: none;
+            background: white; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 1px solid #e2e8f0; width: 320px;
+            font-family: sans-serif; overflow: hidden;
+            animation: slideUp 0.2s ease-out;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .dict-header { background: #f8fafc; padding: 12px 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .dict-word { font-weight: 800; font-size: 1.2rem; color: #1e293b; text-transform: capitalize; }
+        .dict-phonetic { color: #64748b; font-size: 0.9rem; margin-left: 8px; font-family: "Lucida Sans Unicode", sans-serif; }
+        .dict-body { padding: 15px; max-height: 200px; overflow-y: auto; font-size: 0.95rem; line-height: 1.5; color: #334155; }
+        .dict-def-item { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #f1f5f9; }
+        .dict-pos { font-style: italic; color: var(--primary); font-weight: bold; margin-right: 5px; font-size: 0.85rem; }
+        
+        .dict-footer { padding: 10px 15px; background: #fff; border-top: 1px solid #f1f5f9; display: flex; gap: 8px; flex-wrap: wrap; }
+        .dict-btn {
+            padding: 5px 12px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; 
+            font-size: 0.8rem; cursor: pointer; color: #475569; text-decoration: none; display: flex; align-items: center; gap: 4px; transition: 0.2s;
+        }
+        .dict-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #94a3b8; transform: translateY(-1px); }
+        .dict-btn-audio { border-color: #fcd34d; color: #b45309; background: #fffbeb; }
+        .dict-btn-save { border-color: var(--primary); color: var(--primary); background: #eef2ff; font-weight: bold; width: 100%; justify-content: center; margin-bottom: 5px; }
+        .dict-loading { text-align: center; padding: 20px; color: #94a3b8; }
+
+        /* Responsive Mobile */
+        @media screen and (max-width: 768px) {
+            .workspace { flex-direction: column; }
+            .sidebar { position: absolute; top: 0; bottom: 0; left: 0; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+            .aux-panel { width: 100%; height: 30%; border-left: none; border-top: 1px solid var(--border); }
+            .editor-wrapper { padding: 20px; }
+            .toolbar { padding: 0 10px; }
+            .brand span { display: none; }
+        }
+    </style>
+</head>
+<body class="mode-1">
+
+    <div class="toolbar">
+        <div class="brand">🥪 Sandwich <span style="font-size:0.8rem; font-weight:normal; opacity:0.7;">Ult.</span></div>
+        
+        <div class="stage-tabs">
+            <button class="stage-btn active" id="btn-p1" onclick="setPhase(1)">1. 編輯</button>
+            <button class="stage-btn" id="btn-p2" onclick="setPhase(2)">2. 提示</button>
+            <button class="stage-btn" id="btn-p3" onclick="setPhase(3)">3. 複習</button>
+        </div>
+
+        <div class="tools-right">
+            <button class="btn btn-export" id="btn-export-mode" onclick="toggleExportMode()" title="選擇段落匯出">📤 匯出</button>
+            <button class="btn btn-primary" onclick="maskSelection()" title="選取文字按 M">✂️ 挖空 (M)</button>
+            <button class="btn" onclick="toggleSidebar()">☰</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">學習單元 <span onclick="addNewDoc()" style="cursor:pointer; color:var(--primary);">＋ 新增</span></div>
+            <div class="doc-list" id="docList"></div>
+        </div>
+
+        <div class="main-editor">
+            <input id="titleInput" placeholder="輸入單元標題..." oninput="saveData()">
+            <div class="editor-wrapper">
+                <div id="editor" contenteditable="true" 
+                     oninput="saveData()" 
+                     onclick="handleEditorClick(event)"></div>
+            </div>
+        </div>
+
+        <div class="aux-panel">
+            <div class="aux-item" style="flex: 1;">
+                <div class="aux-title">🖼️ 情境圖 <button onclick="clearImg()" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.75rem;">清除</button></div>
+                <div id="imgBox" onclick="document.getElementById('fileIn').click()">
+                    <span id="imgPlaceholder">點擊上傳或貼上圖片</span>
+                    <img id="previewImg" style="max-width:100%; max-height:100%; display:none;">
+                    <input type="file" id="fileIn" hidden accept="image/*" onchange="handleFile(this.files[0])">
+                </div>
+            </div>
+            <div class="aux-item" style="flex: 1.5;">
+                <div class="aux-title">📝 筆記 & 字典收藏</div>
+                <textarea class="note-area" id="noteInput" placeholder="文法重點、單字補充..." oninput="saveData()"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="dict-tooltip">
+        <div class="dict-header">
+            <div>
+                <span id="dt-word" class="dict-word">Word</span>
+                <span id="dt-phonetic" class="dict-phonetic"></span>
+            </div>
+            <button onclick="closeDict()" style="border:none; background:none; cursor:pointer; font-size:1.5rem; color:#94a3b8; line-height:1;">×</button>
+        </div>
+        <div id="dt-body" class="dict-body"></div>
+        <div class="dict-footer">
+            <button class="dict-btn dict-btn-save" onclick="saveToNotes()">📝 加入筆記</button>
+            <button id="btn-play-audio" class="dict-btn dict-btn-audio" onclick="playAudio()">🔊 發音</button>
+            <a id="link-cambridge" class="dict-btn" target="_blank">C. 劍橋</a>
+            <a id="link-images" class="dict-btn" target="_blank">🖼️ 圖片</a>
+            <a id="link-youglish" class="dict-btn" target="_blank">📺 影片</a>
+        </div>
+    </div>
+    <audio id="audio-player" hidden></audio>
+
+    <script>
+        // --- 全域變數 ---
+        let docs = [];
+        let currentId = null;
+        let isExportMode = false;
+        
+        // 字典變數
+        let currentAudioUrl = null;
+        let currentLookedUpWord = '';
+        let currentDefinition = '';
+        const dictTooltip = document.getElementById('dict-tooltip');
+
+        // DOM 元素 cache
+        const editor = document.getElementById('editor');
+        const titleInput = document.getElementById('titleInput');
+        const noteInput = document.getElementById('noteInput');
+        const previewImg = document.getElementById('previewImg');
+        const imgPlaceholder = document.getElementById('imgPlaceholder');
+
+        // 初始化
+        function init() {
+            const data = localStorage.getItem('sandwich_v3_ultimate');
+            if (data) docs = JSON.parse(data);
+            if (docs.length === 0) addNewDoc();
+            else loadDoc(docs[0].id);
+
+            // 快捷鍵 M
+            document.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !isExportMode) {
+                    if (document.body.classList.contains('mode-1')) {
+                        const sel = window.getSelection();
+                        if (sel.toString().trim().length > 0) {
+                            e.preventDefault();
+                            maskSelection();
+                        }
+                    }
+                }
+            });
+
+            // 圖片貼上支援
+            document.addEventListener('paste', (e) => {
+                const items = e.clipboardData.items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        handleFile(items[i].getAsFile());
+                    }
+                }
+            });
+            
+            // 雙擊查字典
+            editor.addEventListener('dblclick', function(e) {
+                const sel = window.getSelection();
+                const word = sel.toString().trim().replace(/[^a-zA-Z]/g, ""); 
+                if (word && word.length > 1) showDict(e.pageX, e.pageY, word);
+            });
+            
+            // 點擊空白關閉字典
+            document.addEventListener('click', function(e) {
+                if (!dictTooltip.contains(e.target) && !editor.contains(e.target)) closeDict();
+            });
+        }
+
+        // --- 1. 挖空邏輯 ---
+        function maskSelection() {
+            if (!document.body.classList.contains('mode-1')) { alert('請切換至「1. 編輯」模式'); return; }
+            const sel = window.getSelection();
+            if (!sel.rangeCount || sel.toString().trim() === '' || !editor.contains(sel.anchorNode)) return;
+
+            const text = sel.toString();
+            const hint = prompt(`將「${text}」挖空。\n(選填) 輸入提示詞：`, "");
+            if (hint === null) return;
+
+            const range = sel.getRangeAt(0);
+            const span = document.createElement('span');
+            span.className = 'cloze-word';
+            span.textContent = text;
+            if (hint.trim() !== "") span.setAttribute('data-hint', hint);
+            
+            range.deleteContents();
+            range.insertNode(span);
+            sel.removeAllRanges();
+            saveData();
+        }
+
+        function handleEditorClick(e) {
+            const target = e.target;
+            // 匯出模式
+            if (isExportMode) {
+                const block = target.closest('div, p');
+                if (block && editor.contains(block) && block !== editor) block.classList.toggle('export-selected');
+                return;
+            }
+            // 點擊挖空字
+            if (target.classList.contains('cloze-word')) {
+                const mode = getMode();
+                if (mode === 1) {
+                    const action = prompt("1. 修改提示 / 2. 取消挖空", "1");
+                    if (action === "1") {
+                        const newHint = prompt("新提示：", target.getAttribute('data-hint') || "");
+                        if(newHint !== null) target.setAttribute('data-hint', newHint);
+                    } else if (action === "2") target.outerHTML = target.textContent;
+                } else {
+                    target.classList.toggle('revealed');
+                }
+                saveData();
+            }
+        }
+
+        function getMode() {
+            if (document.body.classList.contains('mode-1')) return 1;
+            if (document.body.classList.contains('mode-2')) return 2;
+            return 3;
+        }
+
+        // --- 2. 階段切換 ---
+        function setPhase(p) {
+            isExportMode = false; document.body.classList.remove('export-mode');
+            document.body.className = `mode-${p}`;
+            document.querySelectorAll('.stage-btn').forEach(b => b.classList.remove('active', 'active-3'));
+            const btn = document.getElementById(`btn-p${p}`);
+            btn.classList.add('active');
+            if(p===3) btn.classList.add('active-3');
+
+            if (p !== 1) {
+                editor.contentEditable = "false";
+                document.querySelectorAll('.cloze-word').forEach(el => el.classList.remove('revealed'));
+            } else {
+                editor.contentEditable = "true";
+            }
+            updateExportBtn();
+        }
+
+        // --- 3. 匯出邏輯 ---
+        function toggleExportMode() {
+            if (getMode() !== 1) { alert('請先回到第一階段'); return; }
+            isExportMode = !isExportMode;
+            document.body.classList.toggle('export-mode', isExportMode);
+            editor.contentEditable = !isExportMode;
+            updateExportBtn();
+            if (!isExportMode) document.querySelectorAll('.export-selected').forEach(el => el.classList.remove('export-selected'));
+        }
+
+        function updateExportBtn() {
+            const btn = document.getElementById('btn-export-mode');
+            if (isExportMode) { btn.innerText = "✅ 確認匯出"; btn.classList.add('active'); }
+            else { btn.innerText = "📤 匯出"; btn.classList.remove('active'); }
+        }
+
+        document.getElementById('btn-export-mode').onclick = function() {
+            if (!isExportMode) toggleExportMode();
+            else {
+                const selected = document.querySelectorAll('.export-selected');
+                if (selected.length === 0) { toggleExportMode(); return; }
+                let text = "";
+                selected.forEach(el => { text += el.innerText + "\n\n"; el.classList.remove('export-selected'); });
+                const blob = new Blob([text], { type: 'text/plain' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `sandwich_export_${Date.now()}.txt`;
+                a.click();
+                toggleExportMode();
+            }
+        };
+
+        // --- 4. 字典增強邏輯 ---
+        function closeDict() { dictTooltip.style.display = 'none'; currentAudioUrl = null; }
+        
+        function showDict(x, y, word) {
+            currentLookedUpWord = word;
+            let left = x + 10, top = y + 10;
+            if (left + 320 > window.innerWidth) left = window.innerWidth - 340;
+            if (top + 300 > window.innerHeight) top = window.innerHeight - 320;
+            dictTooltip.style.left = left + 'px'; dictTooltip.style.top = top + 'px';
+            dictTooltip.style.display = 'block';
+
+            document.getElementById('dt-word').innerText = word;
+            document.getElementById('dt-phonetic').innerText = '';
+            document.getElementById('dt-body').innerHTML = '<div class="dict-loading">🔍 查詢中...</div>';
+            document.getElementById('btn-play-audio').style.display = 'none';
+            
+            document.getElementById('link-cambridge').href = `https://dictionary.cambridge.org/dictionary/english-chinese-traditional/${word}`;
+            document.getElementById('link-images').href = `https://www.google.com/search?tbm=isch&q=${word}`;
+            document.getElementById('link-youglish').href = `https://youglish.com/pronounce/${word}/english?`;
+
+            fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`)
+                .then(res => { if(!res.ok) throw new Error('404'); return res.json(); })
+                .then(data => renderDictResult(data[0]))
+                .catch(() => {
+                    document.getElementById('dt-body').innerHTML = '<div style="color:#64748b; padding:15px; text-align:center;">找不到此字，請嘗試下方外部連結。</div>';
+                });
+        }
+
+        function renderDictResult(data) {
+            const phonetic = data.phonetic || (data.phonetics.find(p => p.text)?.text) || '';
+            document.getElementById('dt-phonetic').innerText = phonetic;
+            const audioObj = data.phonetics.find(p => p.audio && p.audio !== '');
+            if (audioObj) { currentAudioUrl = audioObj.audio; document.getElementById('btn-play-audio').style.display = 'inline-flex'; }
+
+            let html = ''; currentDefinition = '';
+            data.meanings.slice(0, 3).forEach(m => {
+                const pos = m.partOfSpeech;
+                m.definitions.slice(0, 2).forEach(def => {
+                    html += `<div class="dict-def-item"><span class="dict-pos">${pos}.</span>${def.definition}</div>`;
+                    if(!currentDefinition) currentDefinition = `${pos}. ${def.definition}`;
+                });
+            });
+            document.getElementById('dt-body').innerHTML = html;
+        }
+
+        function playAudio() { if (currentAudioUrl) { const a = document.getElementById('audio-player'); a.src = currentAudioUrl; a.play(); } }
+
+        function saveToNotes() {
+            const time = new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit'});
+            const newEntry = `[${time}] ${currentLookedUpWord}: ${currentDefinition || '自訂筆記...'}\n`;
+            noteInput.value += newEntry;
+            noteInput.scrollTop = noteInput.scrollHeight;
+            
+            const btn = document.querySelector('.dict-btn-save');
+            const originText = btn.innerText;
+            btn.innerText = '✅ 已加入'; btn.style.background = '#dcfce7'; btn.style.color = '#166534';
+            setTimeout(() => { btn.innerText = originText; btn.style.background = ''; btn.style.color = ''; saveData(); }, 1000);
+        }
+
+        // --- 5. 基本 CRUD 與 圖片 ---
+        function addNewDoc() {
+            const newDoc = { id: Date.now(), title: 'Unit ' + (docs.length + 1), content: '<div>Paste content here...</div>', note: '', image: null };
+            docs.unshift(newDoc); loadDoc(newDoc.id);
+        }
+        function loadDoc(id) {
+            currentId = id; const doc = docs.find(d => d.id === id);
+            titleInput.value = doc.title; editor.innerHTML = doc.content; noteInput.value = doc.note || '';
+            if (doc.image) { previewImg.src = doc.image; previewImg.style.display = 'block'; imgPlaceholder.style.display = 'none'; }
+            else { clearImgUI(); }
+            renderList(); setPhase(1);
+        }
+        function saveData() {
+            const doc = docs.find(d => d.id === currentId);
+            if(doc) {
+                doc.title = titleInput.value; doc.content = editor.innerHTML; doc.note = noteInput.value;
+                doc.image = previewImg.src.startsWith('data:') ? previewImg.src : null;
+                localStorage.setItem('sandwich_v3_ultimate', JSON.stringify(docs)); renderList();
+            }
+        }
+        function renderList() {
+            const list = document.getElementById('docList'); list.innerHTML = '';
+            docs.forEach(d => {
+                const div = document.createElement('div'); div.className = `doc-item ${d.id === currentId ? 'active' : ''}`;
+                div.innerText = d.title; div.onclick = () => loadDoc(d.id); list.appendChild(div);
+            });
+        }
+        function handleFile(file) {
+            if(!file) return; const reader = new FileReader();
+            reader.onload = (e) => { previewImg.src = e.target.result; previewImg.style.display = 'block'; imgPlaceholder.style.display = 'none'; saveData(); };
+            reader.readAsDataURL(file);
+        }
+        function clearImg() { clearImgUI(); saveData(); }
+        function clearImgUI() { previewImg.src = ''; previewImg.style.display = 'none'; imgPlaceholder.style.display = 'block'; document.getElementById('fileIn').value = ''; }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('closed'); }
+
+        init();
+    </script>
+</body>
+</html>
