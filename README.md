@@ -3,6 +3,7 @@
 為「英文閱讀」與「情境記憶」設計的單頁網頁應用 (Single Page Application)。
 
 沒有複雜的登入系統，不需要架設資料庫。核心概念是**「上下文三明治法 (Contextual Sandwich)」**：透過將單字挖空、搭配行內圖片 (Inline Image)，讓大腦在閱讀文章的同時，透過上下文與視覺線索來提取記憶。
+> https://progress01.github.io/Sandwich-Learning-v3.1-Ultimate/
 
 ## ✨ 核心特色
 
