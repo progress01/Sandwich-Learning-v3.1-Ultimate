@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sandwich v5.0 - 圖文記憶學習</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- 🔥 新增 Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+
     <style>
         :root {
             --primary: #4f46e5; /* 主色調：靛藍 */
@@ -26,8 +32,16 @@
             margin: 0; padding: 0; 
             font-family: 'Inter', 'Noto Sans TC', sans-serif; 
             background: var(--bg-body); color: var(--text-main); 
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
         }
+
+        /* 🔥 登入畫面樣式 */
+        #login-screen { position: fixed; inset: 0; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; color: white; }
+        .login-box { background: white; color: var(--text-main); padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; width: 90%; max-width: 350px; }
+        .login-btn { width: 100%; background: #4f46e5; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 20px; transition: 0.2s; }
+        .login-btn:hover { background: #4338ca; }
+
+        /* --- 主程式容器 --- */
+        #app-content { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* --- 1. 頂部工具列 (Toolbar) --- */
         .toolbar {
@@ -138,24 +152,24 @@
             display: none; align-items: center; justify-content: center;
         }
         /* 僅在編輯模式顯示刪除鈕 */
-        body.mode-1 .inline-img-wrapper:hover .img-del-btn { display: flex; }
+        .mode-1 .inline-img-wrapper:hover .img-del-btn { display: flex; }
 
         /* 複習模式 (Mode 3) - 圖片模糊遮罩 */
-        body.mode-3 .inline-img-wrapper img {
+        .mode-3 .inline-img-wrapper img {
             filter: blur(12px) grayscale(0.8);
             opacity: 0.6;
         }
-        body.mode-3 .inline-img-wrapper::after {
+        .mode-3 .inline-img-wrapper::after {
             content: '👁️'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 2.5rem; color: rgba(0,0,0,0.4); pointer-events: none;
         }
         /* 點擊或懸停揭曉 */
-        body.mode-3 .inline-img-wrapper:hover img,
-        body.mode-3 .inline-img-wrapper:active img {
+        .mode-3 .inline-img-wrapper:hover img,
+        .mode-3 .inline-img-wrapper:active img {
             filter: none; opacity: 1;
         }
-        body.mode-3 .inline-img-wrapper:hover::after,
-        body.mode-3 .inline-img-wrapper:active::after { display: none; }
+        .mode-3 .inline-img-wrapper:hover::after,
+        .mode-3 .inline-img-wrapper:active::after { display: none; }
 
 
         /* --- 5. 挖空文字 (Cloze) 樣式 --- */
@@ -166,24 +180,24 @@
         }
 
         /* Mode 1: 編輯 */
-        body.mode-1 .cloze-word { background: #f3f4f6; color: black; }
-        body.mode-1 .cloze-word:hover { background: #e5e7eb; }
+        .mode-1 .cloze-word { background: #f3f4f6; color: black; }
+        .mode-1 .cloze-word:hover { background: #e5e7eb; }
         
         /* Mode 2: 提示 (Hint) */
-        body.mode-2 .cloze-word { 
+        .mode-2 .cloze-word { 
             background: var(--cloze-bg-hint); color: var(--cloze-text-hint); 
             font-weight: bold; border-bottom: none; position: relative; 
         }
-        body.mode-2 .cloze-word:not([data-hint]) { background: var(--border); color: transparent; }
-        body.mode-2 .cloze-word[data-hint] { color: transparent; }
-        body.mode-2 .cloze-word[data-hint]::before {
+        .mode-2 .cloze-word:not([data-hint]) { background: var(--border); color: transparent; }
+        .mode-2 .cloze-word[data-hint] { color: transparent; }
+        .mode-2 .cloze-word[data-hint]::before {
             content: attr(data-hint); position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
             color: var(--cloze-text-hint); pointer-events: none; font-size: 0.9em;
         }
 
         /* Mode 3: 全遮 (Test) */
-        body.mode-3 .cloze-word { 
+        .mode-3 .cloze-word { 
             background: var(--cloze-bg-hide); color: transparent; border: none; user-select: none; 
         }
 
@@ -245,116 +259,244 @@
 </head>
 <body class="mode-1">
 
-    <input type="file" id="imgUpload" hidden accept="image/*" onchange="handleManualUpload(this)">
-    <input type="file" id="jsonUpload" hidden accept=".json" onchange="importData(this)">
+    <!-- 🔥 登入畫面 -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2 style="margin-top: 0; color: var(--primary);">🥪 Sandwich</h2>
+            <p style="color: var(--text-light); font-size: 0.95rem;">圖文記憶學習庫</p>
+            <button class="login-btn" onclick="loginFirebase()">使用 Google 登入</button>
+            <button style="background:none; border:none; color:var(--text-light); width:100%; margin-top:15px; cursor:pointer;" onclick="skipLogin()">先離線使用 (僅限本機)</button>
+        </div>
+    </div>
 
-    <div class="toolbar">
-        <div class="brand" onclick="toggleSidebar()">
-            <span style="font-size:1.4rem;">🥪</span> 
-            <span>Sandwich</span>
+    <!-- 🔥 包入主程式容器 -->
+    <div id="app-content">
+        <input type="file" id="imgUpload" hidden accept="image/*" onchange="handleManualUpload(this)">
+        <input type="file" id="jsonUpload" hidden accept=".json" onchange="importData(this)">
+
+        <div class="toolbar">
+            <div class="brand" onclick="toggleSidebar()">
+                <span style="font-size:1.4rem;">🥪</span> 
+                <span>Sandwich</span>
+            </div>
+            
+            <div class="stage-tabs">
+                <button class="stage-btn active" id="btn-p1" onclick="setPhase(1)">1.編輯</button>
+                <button class="stage-btn" id="btn-p2" onclick="setPhase(2)">2.提示</button>
+                <button class="stage-btn" id="btn-p3" onclick="setPhase(3)">3.複習</button>
+            </div>
+
+            <div class="tools-right">
+                <button class="icon-btn primary" onclick="triggerImgUpload()" title="插入圖片">🖼️</button>
+                <button class="icon-btn" onclick="maskSelection()" title="挖空 (M)">✂️</button>
+                <button class="icon-btn" onclick="toggleSidebar()" title="選單">☰</button>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    文章列表
+                    <button onclick="addNewDoc()" style="color:var(--primary); background:none; border:none; font-weight:bold; cursor:pointer; font-size:0.9rem;">＋ 新增</button>
+                </div>
+                <div class="doc-list" id="docList"></div>
+                
+                <!-- 🔥 雲端與資料備份中心 (整合入側邊欄) -->
+                <div style="padding:15px; border-top:1px solid #eee; background:#f9fafb;">
+                    <div style="font-size:0.8rem; color:#888; margin-bottom:10px; display:flex; justify-content:space-between;">
+                        <span>☁️ 雲端同步</span>
+                        <span id="cloud-status">尚未同步</span>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <button onclick="saveToCloudManual()" style="flex:1; padding:8px; border:1px solid #10b981; color:#10b981; background:#ecfdf5; border-radius:6px; cursor:pointer; font-weight:bold;">☁️ 備份</button>
+                        <button onclick="loadFromCloudManual()" style="flex:1; padding:8px; border:1px solid #f59e0b; color:#d97706; background:#fffbeb; border-radius:6px; cursor:pointer; font-weight:bold;">📥 還原</button>
+                    </div>
+
+                    <div style="font-size:0.8rem; color:#888; margin-bottom:10px;">資料備份 (JSON)</div>
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="exportData()" style="flex:1; padding:8px; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer;">📤 匯出</button>
+                        <button onclick="document.getElementById('jsonUpload').click()" style="flex:1; padding:8px; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer;">📥 匯入</button>
+                    </div>
+
+                    <button id="btn-logout" onclick="logoutFirebase()" style="width:100%; padding:8px; margin-top:15px; border:1px solid #fca5a5; color:#ef4444; background:#fef2f2; border-radius:6px; cursor:pointer; display:none;">🚪 登出帳號</button>
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <input id="titleInput" placeholder="在此輸入單元標題..." oninput="saveCurrentDoc()">
+                <div class="editor-scroll">
+                    <div id="editor" contenteditable="true" 
+                         oninput="saveCurrentDoc()" 
+                         onclick="handleEditorClick(event)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dict-sheet">
+            <div class="sheet-handle" onclick="closeDict()"></div>
+            <div class="dict-content">
+                <div class="dict-word-row">
+                    <div>
+                        <span id="dt-word" class="dict-word">Word</span>
+                        <span id="dt-phonetic" class="dict-phonetic"></span>
+                    </div>
+                    <button onclick="closeDict()" style="background:#f3f4f6; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer;">✕</button>
+                </div>
+                
+                <div id="dt-body" class="dict-def-block"></div>
+
+                <div class="dict-actions">
+                    <button class="action-btn" onclick="playAudio()" style="color:#b45309; background:#fffbeb; border-color:#fcd34d;">
+                        🔊 發音
+                    </button>
+                    <button class="action-btn" onclick="searchExternal()" style="color:#374151;">
+                        🖼️ Google 圖
+                    </button>
+                </div>
+            </div>
         </div>
         
-        <div class="stage-tabs">
-            <button class="stage-btn active" id="btn-p1" onclick="setPhase(1)">1.編輯</button>
-            <button class="stage-btn" id="btn-p2" onclick="setPhase(2)">2.提示</button>
-            <button class="stage-btn" id="btn-p3" onclick="setPhase(3)">3.複習</button>
-        </div>
-
-        <div class="tools-right">
-            <button class="icon-btn primary" onclick="triggerImgUpload()" title="插入圖片">🖼️</button>
-            <button class="icon-btn" onclick="maskSelection()" title="挖空 (M)">✂️</button>
-            <button class="icon-btn" onclick="toggleSidebar()" title="選單">☰</button>
-        </div>
+        <audio id="audio-player" hidden></audio>
     </div>
-
-    <div class="workspace">
-        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                文章列表
-                <button onclick="addNewDoc()" style="color:var(--primary); background:none; border:none; font-weight:bold; cursor:pointer; font-size:0.9rem;">＋ 新增</button>
-            </div>
-            <div class="doc-list" id="docList"></div>
-            
-            <div style="padding:15px; border-top:1px solid #eee; background:#f9fafb;">
-                <div style="font-size:0.8rem; color:#888; margin-bottom:10px;">資料備份 (JSON)</div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="exportData()" style="flex:1; padding:8px; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer;">📤 匯出</button>
-                    <button onclick="document.getElementById('jsonUpload').click()" style="flex:1; padding:8px; border:1px solid #ddd; background:white; border-radius:6px; cursor:pointer;">📥 匯入</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="editor-container">
-            <input id="titleInput" placeholder="在此輸入單元標題..." oninput="saveCurrentDoc()">
-            <div class="editor-scroll">
-                <div id="editor" contenteditable="true" 
-                     oninput="saveCurrentDoc()" 
-                     onclick="handleEditorClick(event)"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="dict-sheet">
-        <div class="sheet-handle" onclick="closeDict()"></div>
-        <div class="dict-content">
-            <div class="dict-word-row">
-                <div>
-                    <span id="dt-word" class="dict-word">Word</span>
-                    <span id="dt-phonetic" class="dict-phonetic"></span>
-                </div>
-                <button onclick="closeDict()" style="background:#f3f4f6; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer;">✕</button>
-            </div>
-            
-            <div id="dt-body" class="dict-def-block"></div>
-
-            <div class="dict-actions">
-                <button class="action-btn" onclick="playAudio()" style="color:#b45309; background:#fffbeb; border-color:#fcd34d;">
-                    🔊 發音
-                </button>
-                <button class="action-btn" onclick="searchExternal()" style="color:#374151;">
-                    🖼️ Google 圖
-                </button>
-            </div>
-        </div>
-    </div>
-    
-    <audio id="audio-player" hidden></audio>
 
     <script>
+        /* 🔥 Firebase 初始化與認證 */
+        const firebaseConfig = {
+            apiKey: "AIzaSyAIY9PU-bDLktkTpLSmFKRe1uepvWCKEiU",
+            authDomain: "maplestoryboss.firebaseapp.com",
+            projectId: "maplestoryboss",
+            storageBucket: "maplestoryboss.firebasestorage.app",
+            messagingSenderId: "198034430854",
+            appId: "1:198034430854:web:527ffcee039e223b972a07"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        let currentUser = null;
+
         // --- 核心資料 ---
         let docs = [];
         let currentId = null;
-        const STORAGE_KEY = 'sandwich_v5_data';
 
         // --- DOM Cache ---
         const editor = document.getElementById('editor');
         const titleInput = document.getElementById('titleInput');
-        
-        // --- 初始化 ---
-        function init() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            if (data) {
-                try { docs = JSON.parse(data); } catch(e) { console.error('Data corrupted'); docs=[]; }
+
+        // 🔥 Auth State 監聽
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-content').style.display = 'flex';
+                document.getElementById('btn-logout').style.display = 'block';
+                initLocalData();
+                fetchCloudTime();
+            } else {
+                currentUser = null;
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
             }
-            if (docs.length === 0) addNewDoc();
+        });
+
+        function loginFirebase() { auth.signInWithPopup(provider).catch(e => alert("登入失敗：" + e.message)); }
+        function logoutFirebase() { if(confirm('確定登出？')) auth.signOut(); }
+        function skipLogin() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-content').style.display = 'flex';
+            initLocalData();
+        }
+
+        // --- 初始化邏輯 (無縫轉移) ---
+        function initLocalData() {
+            const localKey = currentUser ? `sandwich_v5_data_${currentUser.uid}` : 'sandwich_v5_data';
+            const saved = localStorage.getItem(localKey);
+            
+            if (saved) {
+                try { docs = JSON.parse(saved); } catch(e) { console.error('Data corrupted'); docs=[]; }
+            } else if (currentUser) {
+                // 接管舊版離線資料
+                const oldOffline = localStorage.getItem('sandwich_v5_data');
+                if (oldOffline && confirm('偵測到您過去的離線資料，是否將其無縫轉移至此帳號中？')) {
+                    try { docs = JSON.parse(oldOffline); saveLocal(); } catch(e) {}
+                } else {
+                    if(confirm('本機目前無資料，是否從雲端下載最新進度？')) loadFromCloudManual();
+                }
+            }
+
+            if (!Array.isArray(docs) || docs.length === 0) addNewDoc();
             else loadDoc(docs[0].id);
 
-            // 1. 監聽貼上 (圖片攔截)
-            editor.addEventListener('paste', handlePaste);
+            setupEventListeners();
+        }
 
-            // 2. 鍵盤快捷鍵
+        function saveLocal() {
+            const localKey = currentUser ? `sandwich_v5_data_${currentUser.uid}` : 'sandwich_v5_data';
+            localStorage.setItem(localKey, JSON.stringify(docs));
+        }
+
+        // 🔥 雲端操作邏輯
+        function saveToCloudManual() {
+            if(!currentUser) return alert('請先登入 Google 帳號！');
+            const statusEl = document.getElementById('cloud-status');
+            statusEl.innerText = '上傳中...';
+            db.collection('Sandwich_Data').doc(currentUser.uid).set({
+                docs: docs,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, {merge:true}).then(() => {
+                alert('✅ 已成功備份至雲端！');
+                fetchCloudTime();
+            }).catch(e => alert("上傳失敗：" + e.message));
+        }
+
+        function loadFromCloudManual() {
+            if(!currentUser) return alert('請先登入 Google 帳號！');
+            if(!confirm('⚠️ 將覆蓋目前畫面上所有資料。確定繼續？')) return;
+            const statusEl = document.getElementById('cloud-status');
+            statusEl.innerText = '下載中...';
+            db.collection('Sandwich_Data').doc(currentUser.uid).get().then(doc => {
+                if(doc.exists && doc.data().docs) {
+                    docs = doc.data().docs;
+                    saveLocal(); renderList(); 
+                    if(docs.length > 0) loadDoc(docs[0].id);
+                    fetchCloudTime();
+                    alert('📥 雲端資料載入成功！');
+                } else {
+                    alert('雲端目前沒有備份資料喔！');
+                    fetchCloudTime();
+                }
+            }).catch(e => alert("下載失敗：" + e.message));
+        }
+
+        function fetchCloudTime() {
+            if(!currentUser) return;
+            db.collection('Sandwich_Data').doc(currentUser.uid).get().then(doc => {
+                const el = document.getElementById('cloud-status');
+                if(doc.exists && doc.data().updatedAt) {
+                    const d = doc.data().updatedAt.toDate();
+                    el.innerText = `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                } else {
+                    el.innerText = '尚無紀錄';
+                }
+            });
+        }
+
+        // --- 事件綁定 ---
+        let eventsBound = false;
+        function setupEventListeners() {
+            if (eventsBound) return;
+            eventsBound = true;
+
+            editor.addEventListener('paste', handlePaste);
             document.addEventListener('keydown', (e) => {
                 if (e.key.toLowerCase() === 'm' && !e.ctrlKey && getMode() === 1) {
-                    // 如果有選取文字，執行挖空
                     if (window.getSelection().toString().trim()) {
                         e.preventDefault();
                         maskSelection();
                     }
                 }
             });
-
-            // 3. 雙擊查字典 (電腦版)
             editor.addEventListener('dblclick', (e) => {
                 if (window.innerWidth > 768) {
                     const sel = window.getSelection();
@@ -388,7 +530,7 @@
             if (doc) {
                 doc.title = titleInput.value;
                 doc.content = editor.innerHTML;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+                saveLocal();
                 renderList(); // 更新標題
             }
         }
@@ -429,25 +571,20 @@
         }
 
         function handleEditorClick(e) {
-            // 點擊挖空字
             if (e.target.classList.contains('cloze-word')) {
                 if (getMode() === 1) {
-                    // 編輯模式：取消挖空
                     if(confirm(`還原文字「${e.target.innerText}」?`)) {
                         e.target.outerHTML = e.target.innerText;
                         saveCurrentDoc();
                     }
                 } else {
-                    // 學習模式：揭曉/隱藏
                     e.target.classList.toggle('revealed');
                 }
             }
         }
 
         // --- 圖片處理 (行內圖片) ---
-        function triggerImgUpload() {
-            document.getElementById('imgUpload').click();
-        }
+        function triggerImgUpload() { document.getElementById('imgUpload').click(); }
 
         function handleManualUpload(input) {
             if (input.files && input.files[0]) {
@@ -457,7 +594,6 @@
         }
 
         function handlePaste(e) {
-            // 偵測剪貼簿是否有圖片
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             let blob = null;
             for (let i = 0; i < items.length; i++) {
@@ -467,18 +603,16 @@
                 }
             }
             if (blob) {
-                e.preventDefault(); // 阻止瀏覽器預設的 <img> 插入
+                e.preventDefault(); 
                 processImage(blob);
             }
         }
 
         function processImage(file) {
-            // 壓縮圖片並插入
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
                 img.onload = function() {
-                    // Canvas 壓縮 (限制最大寬度 800px)
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     const MAX_W = 800;
@@ -488,7 +622,7 @@
                     canvas.width = w; canvas.height = h;
                     ctx.drawImage(img, 0, 0, w, h);
                     
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% 品質
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                     insertImageNode(dataUrl);
                 };
                 img.src = e.target.result;
@@ -499,7 +633,7 @@
         function insertImageNode(base64) {
             const wrapper = document.createElement('div');
             wrapper.className = 'inline-img-wrapper';
-            wrapper.contentEditable = false; // 保護結構
+            wrapper.contentEditable = false;
             wrapper.innerHTML = `
                 <img src="${base64}">
                 <button class="img-del-btn" onclick="deleteImg(this)">×</button>
@@ -511,7 +645,6 @@
                 range.deleteContents();
                 range.insertNode(wrapper);
                 
-                // 插入後補一個換行，方便繼續打字
                 const br = document.createElement('div');
                 br.innerHTML = '<br>';
                 range.setStartAfter(wrapper);
@@ -555,7 +688,6 @@
                     currentAudio = audioObj ? audioObj.audio : null;
 
                     let html = '';
-                    // 取前兩個詞性
                     item.meanings.slice(0, 2).forEach(m => {
                         html += `<div class="dict-def-item">
                             <span class="dict-pos">${m.partOfSpeech}.</span>
@@ -580,9 +712,7 @@
             }
         }
 
-        function searchExternal() {
-            window.open(`https://www.google.com/search?tbm=isch&q=${currentWord}`, '_blank');
-        }
+        function searchExternal() { window.open(`https://www.google.com/search?tbm=isch&q=${currentWord}`, '_blank'); }
 
         // --- 模式與 UI ---
         function setPhase(p) {
@@ -594,7 +724,6 @@
 
             editor.contentEditable = (p === 1);
             if(p !== 1) {
-                // 隱藏所有答案
                 document.querySelectorAll('.cloze-word').forEach(el => el.classList.remove('revealed'));
             }
         }
@@ -617,7 +746,7 @@
             }
         }
 
-        // --- 備份功能 (JSON) ---
+        // --- 本機資料匯出匯入 (JSON) ---
         function exportData() {
             const str = JSON.stringify(docs);
             const blob = new Blob([str], {type: "application/json"});
@@ -637,7 +766,7 @@
                     const json = JSON.parse(e.target.result);
                     if(Array.isArray(json)) {
                         docs = json;
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+                        saveLocal();
                         alert('還原成功！');
                         location.reload();
                     }
@@ -647,10 +776,6 @@
             };
             reader.readAsText(file);
         }
-
-        // 啟動
-        init();
-
     </script>
 </body>
 </html>
